@@ -7,6 +7,8 @@ let scene, camera, renderer, controls;
 const objects = [];
 let cutsceneInProgress = true;
 let clock = new THREE.Clock();
+let windSound = new Audio();
+windSound.volume = 0.1;
 
 function init() {
   // Scene setup
@@ -55,20 +57,46 @@ function init() {
     scene.add(light);
   }
   
-  // Ground
-  const groundGeometry = new THREE.PlaneGeometry(200, 200);
+  // Enhanced ground with displacement
+  const groundGeometry = new THREE.PlaneGeometry(200, 200, 100, 100);
   const groundMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x050505,
     roughness: 1,
-    metalness: 0
+    metalness: 0,
+    displacementScale: 2,
   });
+  
+  // Add displacement to ground
+  const positions = groundGeometry.attributes.position;
+  for(let i = 0; i < positions.count; i++) {
+    const y = (Math.random() - 0.5) * 0.5;
+    positions.setY(i, y);
+  }
+  groundGeometry.computeVertexNormals();
+  
   const ground = new THREE.Mesh(groundGeometry, groundMaterial);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
   
+  // Add fog particles
+  addFogParticles();
+  
+  // Add gravestones
+  for(let i = 0; i < 30; i++) {
+    const gravestone = createGravestone();
+    gravestone.position.set(
+      Math.random() * 140 - 70,
+      0,
+      Math.random() * 140 - 70
+    );
+    gravestone.rotation.y = Math.random() * Math.PI * 2;
+    scene.add(gravestone);
+    objects.push(gravestone);
+  }
+  
   // Add creepy trees
-  for(let i = 0; i < 100; i++) { // More trees
+  for(let i = 0; i < 100; i++) { 
     const tree = createTree();
     tree.position.set(
       Math.random() * 160 - 80,
@@ -92,8 +120,120 @@ function init() {
     objects.push(skull);
   }
   
+  // Add mysterious floating orbs
+  for(let i = 0; i < 15; i++) {
+    const orb = createMysteriousOrb();
+    orb.position.set(
+      Math.random() * 80 - 40,
+      Math.random() * 8 + 4,
+      Math.random() * 80 - 40
+    );
+    scene.add(orb);
+    objects.push(orb);
+  }
+  
+  // Add ground fog
+  const fogGeometry = new THREE.PlaneGeometry(200, 200, 1, 1);
+  const fogMaterial = new THREE.MeshBasicMaterial({
+    color: 0x110000,
+    transparent: true,
+    opacity: 0.2,
+    side: THREE.DoubleSide
+  });
+  const groundFog = new THREE.Mesh(fogGeometry, fogMaterial);
+  groundFog.rotation.x = -Math.PI / 2;
+  groundFog.position.y = 0.1;
+  scene.add(groundFog);
+  
   startCutscene();
   animate();
+}
+
+function createMysteriousOrb() {
+  const group = new THREE.Group();
+  
+  // Core orb
+  const orbGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+  const orbMaterial = new THREE.MeshBasicMaterial({
+    color: 0x330000,
+    transparent: true,
+    opacity: 0.6
+  });
+  const orb = new THREE.Mesh(orbGeometry, orbMaterial);
+  
+  // Glowing halo
+  const haloGeometry = new THREE.SphereGeometry(0.3, 32, 32);
+  const haloMaterial = new THREE.MeshBasicMaterial({
+    color: 0x330000,
+    transparent: true,
+    opacity: 0.2
+  });
+  const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+  
+  group.add(orb);
+  group.add(halo);
+  
+  return group;
+}
+
+function createGravestone() {
+  const group = new THREE.Group();
+  
+  // Base
+  const baseGeometry = new THREE.BoxGeometry(1.2, 0.3, 0.8);
+  const stoneMaterial = new THREE.MeshStandardMaterial({
+    color: 0x222222,
+    roughness: 0.9,
+    metalness: 0.1
+  });
+  const base = new THREE.Mesh(baseGeometry, stoneMaterial);
+  base.position.y = 0.15;
+  base.castShadow = true;
+  group.add(base);
+  
+  // Main stone
+  const stoneGeometry = new THREE.BoxGeometry(0.8, 2, 0.3);
+  const stone = new THREE.Mesh(stoneGeometry, stoneMaterial);
+  stone.position.y = 1.15;
+  stone.castShadow = true;
+  
+  // Distress the gravestone
+  const positions = stoneGeometry.attributes.position;
+  for(let i = 0; i < positions.count; i++) {
+    positions.setX(i, positions.getX(i) + (Math.random() - 0.5) * 0.05);
+    positions.setY(i, positions.getY(i) + (Math.random() - 0.5) * 0.05);
+    positions.setZ(i, positions.getZ(i) + (Math.random() - 0.5) * 0.05);
+  }
+  stoneGeometry.computeVertexNormals();
+  
+  group.add(stone);
+  
+  return group;
+}
+
+function addFogParticles() {
+  const particleCount = 1000;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  
+  for(let i = 0; i < particleCount * 3; i += 3) {
+    positions[i] = Math.random() * 200 - 100;
+    positions[i + 1] = Math.random() * 5;
+    positions[i + 2] = Math.random() * 200 - 100;
+  }
+  
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  
+  const material = new THREE.PointsMaterial({
+    color: 0x220000,
+    size: 0.2,
+    transparent: true,
+    opacity: 0.2
+  });
+  
+  const particles = new THREE.Points(geometry, material);
+  scene.add(particles);
+  objects.push(particles);
 }
 
 function createFloatingSkull() {
@@ -191,9 +331,21 @@ function animate() {
   const time = clock.getElapsedTime();
   
   objects.forEach((obj, index) => {
-    if(obj instanceof THREE.PointLight) {
-      // Flicker the lights
-      obj.intensity = 0.3 + Math.sin(time * 4 + index) * 0.1;
+    if(obj instanceof THREE.Points) {
+      // Animate fog particles
+      const positions = obj.geometry.attributes.position.array;
+      for(let i = 0; i < positions.length; i += 3) {
+        positions[i] += Math.sin(time + index) * 0.01;
+        positions[i + 1] += Math.cos(time + index) * 0.005;
+        positions[i + 2] += Math.sin(time + index) * 0.01;
+        
+        // Reset particles that drift too far
+        if(positions[i] > 100) positions[i] = -100;
+        if(positions[i] < -100) positions[i] = 100;
+        if(positions[i + 2] > 100) positions[i + 2] = -100;
+        if(positions[i + 2] < -100) positions[i + 2] = 100;
+      }
+      obj.geometry.attributes.position.needsUpdate = true;
     } else if(obj instanceof THREE.Group) {
       // Animate trees and skulls
       obj.rotation.y += Math.sin(time + index) * 0.001;
@@ -201,6 +353,17 @@ function animate() {
         // It's a skull, make it float
         obj.position.y += Math.sin(time * 2 + index) * 0.005;
       }
+      
+      // Additional animations for orbs
+      if(obj.children[0]?.material?.opacity !== undefined) {
+        obj.children[0].material.opacity = 0.6 + Math.sin(time * 2 + index) * 0.2;
+        obj.children[1].material.opacity = 0.2 + Math.sin(time * 2 + index) * 0.1;
+        obj.rotation.y += 0.005;
+        obj.position.y += Math.sin(time + index) * 0.01;
+      }
+    } else if(obj instanceof THREE.PointLight) {
+      // Flicker the lights
+      obj.intensity = 0.3 + Math.sin(time * 4 + index) * 0.1;
     }
   });
   
