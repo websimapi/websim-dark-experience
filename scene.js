@@ -313,6 +313,7 @@ function createTree() {
     positions.setZ(i, z + Math.cos(y * 0.5) * 0.2);
   }
 
+  trunkGeometry.computeVertexNormals();
   const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
   trunk.castShadow = true;
   group.add(trunk);
@@ -375,7 +376,8 @@ function handleFocus() {
 
   // Find ground intersection
   const groundIntersect = intersects.find(intersect => 
-    intersect.object.geometry instanceof THREE.PlaneGeometry);
+    intersect.object.geometry && (intersect.object.geometry instanceof THREE.PlaneGeometry || intersect.object.geometry.type === 'PlaneGeometry')
+  );
 
   if (groundIntersect) {
     const point = groundIntersect.point;
@@ -451,14 +453,14 @@ function moveToPoint(point) {
       x: point.x,
       y: Math.max(2, point.y), // Keep minimum height
       z: point.z,
-      duration: 0.1,
+      duration: 0.05,
       ease: "none"
-    }, index * 0.1);
+    }, index * 0.05);
   });
 
   // Camera look-ahead system
   let lookAheadPoint = new THREE.Vector3();
-  gsap.to(controls.target, {
+  timeline.to(controls.target, {
     x: point.x,
     y: 0,
     z: point.z,
@@ -474,7 +476,7 @@ function moveToPoint(point) {
       lookAheadPoint.copy(points[lookAheadIndex]);
       controls.target.copy(lookAheadPoint);
     }
-  });
+  }, 0);
 }
 
 function animate() {
@@ -572,6 +574,7 @@ function animate() {
 }
 
 window.addEventListener('resize', () => {
+  if (!camera || !renderer) return;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
