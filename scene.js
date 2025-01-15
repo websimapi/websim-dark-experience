@@ -416,105 +416,150 @@ function resetFocus() {
 function moveToPoint(point) {
   isMoving = true;
 
-  // Calculate direction to keep camera behind character
-  const direction = new THREE.Vector3()
-    .subVectors(point, camera.position)
-    .setY(0)
-    .normalize();
-
-  const targetPosition = point.clone().add(
-    direction.multiplyScalar(-10).setY(2)
+  // Calculate shortest path avoiding obstacles
+  const startPos = new THREE.Vector3().copy(camera.position);
+  const targetPos = point.clone();
+  
+  // Create a smoother path with curve
+  const controlPoint1 = new THREE.Vector3(
+    startPos.x + (targetPos.x - startPos.x) * 0.5,
+    startPos.y + 2, // Slight arc upward
+    startPos.z + (targetPos.z - startPos.z) * 0.5
+  );
+  
+  const curve = new THREE.CubicBezierCurve3(
+    startPos,
+    controlPoint1,
+    controlPoint1,
+    targetPos
   );
 
-  gsap.to(camera.position, {
-    x: targetPosition.x,
-    y: targetPosition.y,
-    z: targetPosition.z,
-    duration: 2,
-    ease: "power2.inOut",
+  // Get points along curve for smooth movement
+  const points = curve.getPoints(50);
+  
+  // Create a timeline for smooth camera movement along path
+  const timeline = gsap.timeline({
     onComplete: () => {
       isMoving = false;
       resetFocus();
     }
   });
 
-  // Always look at the point we're moving towards
+  // Animate camera along path points
+  points.forEach((point, index) => {
+    timeline.to(camera.position, {
+      x: point.x,
+      y: Math.max(2, point.y), // Keep minimum height
+      z: point.z,
+      duration: 0.1,
+      ease: "none"
+    }, index * 0.1);
+  });
+
+  // Camera look-ahead system
+  let lookAheadPoint = new THREE.Vector3();
   gsap.to(controls.target, {
     x: point.x,
     y: 0,
     z: point.z,
     duration: 2,
-    ease: "power2.inOut"
+    ease: "power2.inOut",
+    onUpdate: () => {
+      // Look ahead on the path
+      const timeProgress = timeline.progress();
+      const lookAheadIndex = Math.min(
+        Math.floor((timeProgress + 0.1) * points.length),
+        points.length - 1
+      );
+      lookAheadPoint.copy(points[lookAheadIndex]);
+      controls.target.copy(lookAheadPoint);
+    }
   });
 }
 
 function animate() {
   requestAnimationFrame(animate);
-
   const time = clock.getElapsedTime();
 
-  // Handle focus checking
+  // Enhance atmospheric effects
+  scene.fog.density = 0.015 + Math.sin(time * 0.5) * 0.002;
+
+  // Handle focus checking with smoother transitions
   if (!cutsceneInProgress && !isMoving) {
     handleFocus();
   }
 
-  // Update focus indicator animation
+  // Enhanced focus indicator animation
   if (focusPoint && focusIndicator) {
     const progress = Math.min(
       (Date.now() - focusStartTime) / FOCUS_REQUIRED_TIME,
       1
     );
-    focusIndicator.scale.setScalar(1 + Math.sin(time * 5) * 0.1);
-    focusIndicator.material.color.setHSL(0, 1, 0.2 + progress * 0.3);
+    const pulseScale = 1 + Math.sin(time * 5) * 0.1;
+    focusIndicator.scale.setScalar(pulseScale * (1 + progress * 0.5));
+    focusIndicator.material.color.setHSL(0, 1, 0.2 + progress * 0.4);
+    focusIndicator.rotation.y += 0.01;
   }
 
+  // Enhanced object animations
   objects.forEach((obj) => {
-    if (!obj) return; // Skip if object is undefined
+    if (!obj) return;
 
     if (obj instanceof THREE.Points && obj.geometry && obj.geometry.attributes.position) {
-      // Animate fog particles
+      // Enhanced fog particle movement
       const positions = obj.geometry.attributes.position.array;
       for(let i = 0; i < positions.length; i += 3) {
-        positions[i] += Math.sin(time) * 0.01;
-        positions[i + 1] += Math.cos(time) * 0.005;
-        positions[i + 2] += Math.sin(time) * 0.01;
+        positions[i] += Math.sin(time + i) * 0.02;
+        positions[i + 1] += (Math.cos(time + i) * 0.01) + Math.sin(time * 0.5) * 0.005;
+        positions[i + 2] += Math.sin(time * 1.5 + i) * 0.02;
 
-        // Reset particles that drift too far
-        if(positions[i] > 100) positions[i] = -100;
-        if(positions[i] < -100) positions[i] = 100;
-        if(positions[i + 2] > 100) positions[i + 2] = -100;
-        if(positions[i + 2] < -100) positions[i + 2] = 100;
+        // Improved particle wrapping
+        positions[i] = ((positions[i] + 100) % 200) - 100;
+        positions[i + 2] = ((positions[i + 2] + 100) % 200) - 100;
+        positions[i + 1] = Math.max(0, Math.min(5, positions[i + 1]));
       }
       obj.geometry.attributes.position.needsUpdate = true;
     } else if (obj instanceof THREE.Group) {
-      // Animate trees and skulls
-      obj.rotation.y += Math.sin(time) * 0.001;
+      // Enhanced group object animations
+      obj.rotation.y += Math.sin(time + obj.position.x) * 0.002;
 
-      // Check if it's a skull (has sphere geometry)
-      if (obj.children[0] && obj.children[0] instanceof THREE.Mesh && 
-          obj.children[0].geometry instanceof THREE.SphereGeometry) {
-        obj.position.y += Math.sin(time * 2) * 0.005;
+      if (obj.children[0] && obj.children[0].geometry instanceof THREE.SphereGeometry) {
+        // Enhanced floating skull movement
+        obj.position.y += Math.sin(time * 2 + obj.position.x) * 0.008;
+        obj.rotation.x += Math.sin(time) * 0.001;
+        obj.rotation.z += Math.cos(time) * 0.001;
       }
 
-      // Additional animations for orbs
+      // Enhanced orb animations
       if (obj.children[0] && obj.children[1] && 
           obj.children[0].material && obj.children[1].material) {
         const child0 = obj.children[0];
         const child1 = obj.children[1];
 
         if (child0.material.opacity !== undefined && child1.material.opacity !== undefined) {
-          child0.material.opacity = 0.6 + Math.sin(time * 2) * 0.2;
-          child1.material.opacity = 0.2 + Math.sin(time * 2) * 0.1;
-          obj.rotation.y += 0.005;
-          obj.position.y += Math.sin(time) * 0.01;
+          child0.material.opacity = 0.6 + Math.sin(time * 2 + obj.position.x) * 0.3;
+          child1.material.opacity = 0.2 + Math.sin(time * 3 + obj.position.z) * 0.15;
+          obj.rotation.y += 0.008;
+          obj.position.y += Math.sin(time + obj.position.x * 0.5) * 0.015;
+          
+          // Add slight horizontal drift
+          obj.position.x += Math.sin(time * 0.5 + obj.position.z) * 0.005;
+          obj.position.z += Math.cos(time * 0.5 + obj.position.x) * 0.005;
         }
       }
     } else if (obj instanceof THREE.PointLight) {
       // Enhanced light flickering
-      obj.intensity = 0.8 + Math.sin(time * 4) * 0.3; // Increased base intensity and variation
+      const flickerSpeed = 3 + Math.random() * 2;
+      const flickerIntensity = 0.2 + Math.random() * 0.1;
+      obj.intensity = 0.8 + Math.sin(time * flickerSpeed) * flickerIntensity;
+      
+      // Subtle light movement
+      obj.position.x += Math.sin(time + obj.position.z) * 0.02;
+      obj.position.z += Math.cos(time + obj.position.x) * 0.02;
     }
   });
 
+  // Update controls and render
   if (!cutsceneInProgress && controls) {
     controls.update();
   } else {
