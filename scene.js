@@ -10,6 +10,14 @@ let clock = new THREE.Clock();
 let windSound = new Audio();
 windSound.volume = 0.1;
 
+let mouse = new THREE.Vector2();
+let raycaster = new THREE.Raycaster();
+let focusPoint = null;
+let focusStartTime = 0;
+const FOCUS_REQUIRED_TIME = 5000; // 5 seconds in milliseconds
+let focusIndicator = null;
+let isMoving = false;
+
 function init() {
   // Scene setup
   scene = new THREE.Scene();
@@ -144,6 +152,21 @@ function init() {
   groundFog.rotation.x = -Math.PI / 2;
   groundFog.position.y = 0.1;
   scene.add(groundFog);
+  
+  // Add focus indicator
+  const indicatorGeometry = new THREE.RingGeometry(0.5, 0.7, 32);
+  const indicatorMaterial = new THREE.MeshBasicMaterial({
+    color: 0x330000,
+    transparent: true,
+    opacity: 0.0,
+    side: THREE.DoubleSide
+  });
+  focusIndicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+  focusIndicator.rotation.x = -Math.PI / 2;
+  scene.add(focusIndicator);
+  
+  // Add mouse move event listener
+  document.addEventListener('mousemove', onMouseMove);
   
   startCutscene();
   animate();
@@ -325,10 +348,113 @@ function startCutscene() {
     });
 }
 
+function onMouseMove(event) {
+  if (cutsceneInProgress) return;
+  
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+}
+
+function handleFocus() {
+  if (cutsceneInProgress) return;
+  
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(scene.children, true);
+  
+  // Find ground intersection
+  const groundIntersect = intersects.find(intersect => 
+    intersect.object.geometry instanceof THREE.PlaneGeometry);
+    
+  if (groundIntersect) {
+    const point = groundIntersect.point;
+    
+    // Update focus indicator position
+    focusIndicator.position.set(point.x, 0.1, point.z);
+    
+    if (!focusPoint) {
+      // Start new focus
+      focusPoint = point.clone();
+      focusStartTime = Date.now();
+      gsap.to(focusIndicator.material, {
+        opacity: 0.8,
+        duration: 0.3
+      });
+    } else if (!focusPoint.equals(point)) {
+      // Reset focus if point changed
+      focusPoint = point.clone();
+      focusStartTime = Date.now();
+    } else if (!isMoving && Date.now() - focusStartTime >= FOCUS_REQUIRED_TIME) {
+      // Focus complete, start movement
+      moveToPoint(point);
+    }
+  } else {
+    resetFocus();
+  }
+}
+
+function resetFocus() {
+  focusPoint = null;
+  focusStartTime = 0;
+  gsap.to(focusIndicator.material, {
+    opacity: 0,
+    duration: 0.3
+  });
+}
+
+function moveToPoint(point) {
+  isMoving = true;
+  
+  // Calculate direction to keep camera behind character
+  const direction = new THREE.Vector3()
+    .subVectors(point, camera.position)
+    .setY(0)
+    .normalize();
+    
+  const targetPosition = point.clone().add(
+    direction.multiplyScalar(-10).setY(2)
+  );
+  
+  gsap.to(camera.position, {
+    x: targetPosition.x,
+    y: targetPosition.y,
+    z: targetPosition.z,
+    duration: 2,
+    ease: "power2.inOut",
+    onComplete: () => {
+      isMoving = false;
+      resetFocus();
+    }
+  });
+  
+  // Always look at the point we're moving towards
+  gsap.to(controls.target, {
+    x: point.x,
+    y: 0,
+    z: point.z,
+    duration: 2,
+    ease: "power2.inOut"
+  });
+}
+
 function animate() {
   requestAnimationFrame(animate);
   
   const time = clock.getElapsedTime();
+  
+  // Handle focus checking
+  if (!cutsceneInProgress && !isMoving) {
+    handleFocus();
+  }
+  
+  // Update focus indicator animation
+  if (focusPoint && focusIndicator) {
+    const progress = Math.min(
+      (Date.now() - focusStartTime) / FOCUS_REQUIRED_TIME,
+      1
+    );
+    focusIndicator.scale.setScalar(1 + Math.sin(time * 5) * 0.1);
+    focusIndicator.material.color.setHSL(0, 1, 0.2 + progress * 0.3);
+  }
   
   objects.forEach((obj) => {
     if (!obj) return; // Skip if object is undefined
