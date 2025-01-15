@@ -21,50 +21,62 @@ let isMoving = false;
 function init() {
   // Scene setup
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x000000, 0.025); // Increased fog density
-  
+  scene.fog = new THREE.FogExp2(0x000000, 0.015); // Reduced fog density for better visibility
+
   // Camera setup
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 30, 50);
   camera.lookAt(0, 0, 0);
-  
+
   // Renderer setup
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0x000000);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  
+
   const container = document.getElementById('scene-container');
   container.appendChild(renderer.domElement);
-  
+
   // Controls
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.enabled = false;
-  
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0x020202); // Even darker ambient
+
+  // Enhanced Lighting
+  const ambientLight = new THREE.AmbientLight(0x333333); // Brighter ambient light
   scene.add(ambientLight);
-  
-  // Add eerie red moonlight
-  const moonLight = new THREE.DirectionalLight(0x330000, 0.2);
+
+  // Add brighter red moonlight
+  const moonLight = new THREE.DirectionalLight(0x550000, 0.5); // Increased intensity
   moonLight.position.set(5, 15, 5);
   moonLight.castShadow = true;
+  moonLight.shadow.mapSize.width = 2048;
+  moonLight.shadow.mapSize.height = 2048;
   scene.add(moonLight);
-  
-  // Add flickering lights
-  for(let i = 0; i < 8; i++) {
-    const light = new THREE.PointLight(0x330000, 0.3, 15);
+
+  // Add more flickering lights with higher intensity
+  for(let i = 0; i < 12; i++) { // Increased number of lights
+    const light = new THREE.PointLight(0x330000, 0.8, 20); // Increased intensity and range
     light.position.set(
       Math.random() * 60 - 30,
-      Math.random() * 3 + 0.5,
+      Math.random() * 5 + 2, // Raised height for better illumination
       Math.random() * 60 - 30
     );
-    objects.push(light); // Add to objects for animation
+    light.castShadow = true;
+    objects.push(light);
     scene.add(light);
   }
-  
+
+  // Add additional ambient fills
+  const fillLight1 = new THREE.DirectionalLight(0x221111, 0.3);
+  fillLight1.position.set(-10, 10, -10);
+  scene.add(fillLight1);
+
+  const fillLight2 = new THREE.DirectionalLight(0x112211, 0.2);
+  fillLight2.position.set(10, 10, 10);
+  scene.add(fillLight2);
+
   // Enhanced ground with displacement
   const groundGeometry = new THREE.PlaneGeometry(200, 200, 100, 100);
   const groundMaterial = new THREE.MeshStandardMaterial({ 
@@ -73,7 +85,7 @@ function init() {
     metalness: 0,
     displacementScale: 2,
   });
-  
+
   // Add displacement to ground
   const positions = groundGeometry.attributes.position;
   for(let i = 0; i < positions.count; i++) {
@@ -81,15 +93,15 @@ function init() {
     positions.setY(i, y);
   }
   groundGeometry.computeVertexNormals();
-  
+
   const ground = new THREE.Mesh(groundGeometry, groundMaterial);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
-  
+
   // Add fog particles
   addFogParticles();
-  
+
   // Add gravestones
   for(let i = 0; i < 30; i++) {
     const gravestone = createGravestone();
@@ -102,7 +114,7 @@ function init() {
     scene.add(gravestone);
     objects.push(gravestone);
   }
-  
+
   // Add creepy trees
   for(let i = 0; i < 100; i++) { 
     const tree = createTree();
@@ -115,7 +127,7 @@ function init() {
     scene.add(tree);
     objects.push(tree);
   }
-  
+
   // Add floating skull-like shapes
   for(let i = 0; i < 20; i++) {
     const skull = createFloatingSkull();
@@ -127,7 +139,7 @@ function init() {
     scene.add(skull);
     objects.push(skull);
   }
-  
+
   // Add mysterious floating orbs
   for(let i = 0; i < 15; i++) {
     const orb = createMysteriousOrb();
@@ -139,7 +151,7 @@ function init() {
     scene.add(orb);
     objects.push(orb);
   }
-  
+
   // Add ground fog
   const fogGeometry = new THREE.PlaneGeometry(200, 200, 1, 1);
   const fogMaterial = new THREE.MeshBasicMaterial({
@@ -152,7 +164,7 @@ function init() {
   groundFog.rotation.x = -Math.PI / 2;
   groundFog.position.y = 0.1;
   scene.add(groundFog);
-  
+
   // Add focus indicator
   const indicatorGeometry = new THREE.RingGeometry(0.5, 0.7, 32);
   const indicatorMaterial = new THREE.MeshBasicMaterial({
@@ -164,17 +176,17 @@ function init() {
   focusIndicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
   focusIndicator.rotation.x = -Math.PI / 2;
   scene.add(focusIndicator);
-  
+
   // Add mouse move event listener
   document.addEventListener('mousemove', onMouseMove);
-  
+
   startCutscene();
   animate();
 }
 
 function createMysteriousOrb() {
   const group = new THREE.Group();
-  
+
   // Core orb
   const orbGeometry = new THREE.SphereGeometry(0.2, 32, 32);
   const orbMaterial = new THREE.MeshBasicMaterial({
@@ -183,7 +195,7 @@ function createMysteriousOrb() {
     opacity: 0.6
   });
   const orb = new THREE.Mesh(orbGeometry, orbMaterial);
-  
+
   // Glowing halo
   const haloGeometry = new THREE.SphereGeometry(0.3, 32, 32);
   const haloMaterial = new THREE.MeshBasicMaterial({
@@ -192,20 +204,20 @@ function createMysteriousOrb() {
     opacity: 0.2
   });
   const halo = new THREE.Mesh(haloGeometry, haloMaterial);
-  
+
   group.add(orb);
   group.add(halo);
-  
+
   return group;
 }
 
 function createGravestone() {
   const group = new THREE.Group();
-  
+
   // Base
   const baseGeometry = new THREE.BoxGeometry(1.2, 0.3, 0.8);
   const stoneMaterial = new THREE.MeshStandardMaterial({
-    color: 0x222222,
+    color: 0x333333, // Lighter color for gravestones
     roughness: 0.9,
     metalness: 0.1
   });
@@ -213,13 +225,13 @@ function createGravestone() {
   base.position.y = 0.15;
   base.castShadow = true;
   group.add(base);
-  
+
   // Main stone
   const stoneGeometry = new THREE.BoxGeometry(0.8, 2, 0.3);
   const stone = new THREE.Mesh(stoneGeometry, stoneMaterial);
   stone.position.y = 1.15;
   stone.castShadow = true;
-  
+
   // Distress the gravestone
   const positions = stoneGeometry.attributes.position;
   for(let i = 0; i < positions.count; i++) {
@@ -228,9 +240,9 @@ function createGravestone() {
     positions.setZ(i, positions.getZ(i) + (Math.random() - 0.5) * 0.05);
   }
   stoneGeometry.computeVertexNormals();
-  
+
   group.add(stone);
-  
+
   return group;
 }
 
@@ -238,22 +250,22 @@ function addFogParticles() {
   const particleCount = 1000;
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(particleCount * 3);
-  
+
   for(let i = 0; i < particleCount * 3; i += 3) {
     positions[i] = Math.random() * 200 - 100;
     positions[i + 1] = Math.random() * 5;
     positions[i + 2] = Math.random() * 200 - 100;
   }
-  
+
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  
+
   const material = new THREE.PointsMaterial({
     color: 0x220000,
     size: 0.2,
     transparent: true,
     opacity: 0.2
   });
-  
+
   const particles = new THREE.Points(geometry, material);
   scene.add(particles);
   objects.push(particles);
@@ -261,7 +273,7 @@ function addFogParticles() {
 
 function createFloatingSkull() {
   const group = new THREE.Group();
-  
+
   // Create basic skull shape
   const skullGeometry = new THREE.SphereGeometry(0.3, 8, 8);
   const skullMaterial = new THREE.MeshStandardMaterial({
@@ -271,40 +283,40 @@ function createFloatingSkull() {
     emissive: 0x110000,
     emissiveIntensity: 0.2
   });
-  
+
   const skull = new THREE.Mesh(skullGeometry, skullMaterial);
   skull.castShadow = true;
   group.add(skull);
-  
+
   return group;
 }
 
 function createTree() {
   const group = new THREE.Group();
-  
+
   // Twisted trunk
   const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.4, 6, 8);
   const trunkMaterial = new THREE.MeshStandardMaterial({
-    color: 0x110000,
+    color: 0x221111, // Lighter color for trees
     roughness: 1,
     metalness: 0.1
   });
-  
+
   // Distort trunk vertices for twisted look
   const positions = trunkGeometry.attributes.position;
   for(let i = 0; i < positions.count; i++) {
     const x = positions.getX(i);
     const y = positions.getY(i);
     const z = positions.getZ(i);
-    
+
     positions.setX(i, x + Math.sin(y * 0.5) * 0.2);
     positions.setZ(i, z + Math.cos(y * 0.5) * 0.2);
   }
-  
+
   const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
   trunk.castShadow = true;
   group.add(trunk);
-  
+
   // Add more twisted branches
   for(let i = 0; i < 8; i++) {
     const branchGeometry = new THREE.CylinderGeometry(0.1, 0.15, 2 + Math.random() * 3, 5);
@@ -318,7 +330,7 @@ function createTree() {
     branch.castShadow = true;
     group.add(branch);
   }
-  
+
   return group;
 }
 
@@ -350,27 +362,27 @@ function startCutscene() {
 
 function onMouseMove(event) {
   if (cutsceneInProgress) return;
-  
+
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 }
 
 function handleFocus() {
   if (cutsceneInProgress) return;
-  
+
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(scene.children, true);
-  
+
   // Find ground intersection
   const groundIntersect = intersects.find(intersect => 
     intersect.object.geometry instanceof THREE.PlaneGeometry);
-    
+
   if (groundIntersect) {
     const point = groundIntersect.point;
-    
+
     // Update focus indicator position
     focusIndicator.position.set(point.x, 0.1, point.z);
-    
+
     if (!focusPoint) {
       // Start new focus
       focusPoint = point.clone();
@@ -403,17 +415,17 @@ function resetFocus() {
 
 function moveToPoint(point) {
   isMoving = true;
-  
+
   // Calculate direction to keep camera behind character
   const direction = new THREE.Vector3()
     .subVectors(point, camera.position)
     .setY(0)
     .normalize();
-    
+
   const targetPosition = point.clone().add(
     direction.multiplyScalar(-10).setY(2)
   );
-  
+
   gsap.to(camera.position, {
     x: targetPosition.x,
     y: targetPosition.y,
@@ -425,7 +437,7 @@ function moveToPoint(point) {
       resetFocus();
     }
   });
-  
+
   // Always look at the point we're moving towards
   gsap.to(controls.target, {
     x: point.x,
@@ -438,14 +450,14 @@ function moveToPoint(point) {
 
 function animate() {
   requestAnimationFrame(animate);
-  
+
   const time = clock.getElapsedTime();
-  
+
   // Handle focus checking
   if (!cutsceneInProgress && !isMoving) {
     handleFocus();
   }
-  
+
   // Update focus indicator animation
   if (focusPoint && focusIndicator) {
     const progress = Math.min(
@@ -455,10 +467,10 @@ function animate() {
     focusIndicator.scale.setScalar(1 + Math.sin(time * 5) * 0.1);
     focusIndicator.material.color.setHSL(0, 1, 0.2 + progress * 0.3);
   }
-  
+
   objects.forEach((obj) => {
     if (!obj) return; // Skip if object is undefined
-    
+
     if (obj instanceof THREE.Points && obj.geometry && obj.geometry.attributes.position) {
       // Animate fog particles
       const positions = obj.geometry.attributes.position.array;
@@ -466,7 +478,7 @@ function animate() {
         positions[i] += Math.sin(time) * 0.01;
         positions[i + 1] += Math.cos(time) * 0.005;
         positions[i + 2] += Math.sin(time) * 0.01;
-        
+
         // Reset particles that drift too far
         if(positions[i] > 100) positions[i] = -100;
         if(positions[i] < -100) positions[i] = 100;
@@ -477,19 +489,19 @@ function animate() {
     } else if (obj instanceof THREE.Group) {
       // Animate trees and skulls
       obj.rotation.y += Math.sin(time) * 0.001;
-      
+
       // Check if it's a skull (has sphere geometry)
       if (obj.children[0] && obj.children[0] instanceof THREE.Mesh && 
           obj.children[0].geometry instanceof THREE.SphereGeometry) {
         obj.position.y += Math.sin(time * 2) * 0.005;
       }
-      
+
       // Additional animations for orbs
       if (obj.children[0] && obj.children[1] && 
           obj.children[0].material && obj.children[1].material) {
         const child0 = obj.children[0];
         const child1 = obj.children[1];
-        
+
         if (child0.material.opacity !== undefined && child1.material.opacity !== undefined) {
           child0.material.opacity = 0.6 + Math.sin(time * 2) * 0.2;
           child1.material.opacity = 0.2 + Math.sin(time * 2) * 0.1;
@@ -498,17 +510,17 @@ function animate() {
         }
       }
     } else if (obj instanceof THREE.PointLight) {
-      // Flicker the lights
-      obj.intensity = 0.3 + Math.sin(time * 4) * 0.1;
+      // Enhanced light flickering
+      obj.intensity = 0.8 + Math.sin(time * 4) * 0.3; // Increased base intensity and variation
     }
   });
-  
+
   if (!cutsceneInProgress && controls) {
     controls.update();
   } else {
     camera.lookAt(0, 0, 0);
   }
-  
+
   if (renderer && scene && camera) {
     renderer.render(scene, camera);
   }
@@ -524,10 +536,10 @@ document.getElementById('start-btn').addEventListener('click', () => {
   const audio = document.getElementById('ambient-audio');
   const container = document.getElementById('scene-container');
   const button = document.getElementById('start-btn');
-  
+
   audio.play();
   container.classList.add('visible');
   button.style.display = 'none';
-  
+
   init();
 });
