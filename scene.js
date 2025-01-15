@@ -330,14 +330,16 @@ function animate() {
   
   const time = clock.getElapsedTime();
   
-  objects.forEach((obj, index) => {
-    if(obj instanceof THREE.Points) {
+  objects.forEach((obj) => {
+    if (!obj) return; // Skip if object is undefined
+    
+    if (obj instanceof THREE.Points && obj.geometry && obj.geometry.attributes.position) {
       // Animate fog particles
       const positions = obj.geometry.attributes.position.array;
       for(let i = 0; i < positions.length; i += 3) {
-        positions[i] += Math.sin(time + index) * 0.01;
-        positions[i + 1] += Math.cos(time + index) * 0.005;
-        positions[i + 2] += Math.sin(time + index) * 0.01;
+        positions[i] += Math.sin(time) * 0.01;
+        positions[i + 1] += Math.cos(time) * 0.005;
+        positions[i + 2] += Math.sin(time) * 0.01;
         
         // Reset particles that drift too far
         if(positions[i] > 100) positions[i] = -100;
@@ -346,34 +348,44 @@ function animate() {
         if(positions[i + 2] < -100) positions[i + 2] = 100;
       }
       obj.geometry.attributes.position.needsUpdate = true;
-    } else if(obj instanceof THREE.Group) {
+    } else if (obj instanceof THREE.Group) {
       // Animate trees and skulls
-      obj.rotation.y += Math.sin(time + index) * 0.001;
-      if(obj.children[0] instanceof THREE.Mesh && obj.children[0].geometry instanceof THREE.SphereGeometry) {
-        // It's a skull, make it float
-        obj.position.y += Math.sin(time * 2 + index) * 0.005;
+      obj.rotation.y += Math.sin(time) * 0.001;
+      
+      // Check if it's a skull (has sphere geometry)
+      if (obj.children[0] && obj.children[0] instanceof THREE.Mesh && 
+          obj.children[0].geometry instanceof THREE.SphereGeometry) {
+        obj.position.y += Math.sin(time * 2) * 0.005;
       }
       
       // Additional animations for orbs
-      if(obj.children[0]?.material?.opacity !== undefined) {
-        obj.children[0].material.opacity = 0.6 + Math.sin(time * 2 + index) * 0.2;
-        obj.children[1].material.opacity = 0.2 + Math.sin(time * 2 + index) * 0.1;
-        obj.rotation.y += 0.005;
-        obj.position.y += Math.sin(time + index) * 0.01;
+      if (obj.children[0] && obj.children[1] && 
+          obj.children[0].material && obj.children[1].material) {
+        const child0 = obj.children[0];
+        const child1 = obj.children[1];
+        
+        if (child0.material.opacity !== undefined && child1.material.opacity !== undefined) {
+          child0.material.opacity = 0.6 + Math.sin(time * 2) * 0.2;
+          child1.material.opacity = 0.2 + Math.sin(time * 2) * 0.1;
+          obj.rotation.y += 0.005;
+          obj.position.y += Math.sin(time) * 0.01;
+        }
       }
-    } else if(obj instanceof THREE.PointLight) {
+    } else if (obj instanceof THREE.PointLight) {
       // Flicker the lights
-      obj.intensity = 0.3 + Math.sin(time * 4 + index) * 0.1;
+      obj.intensity = 0.3 + Math.sin(time * 4) * 0.1;
     }
   });
   
-  if (!cutsceneInProgress) {
+  if (!cutsceneInProgress && controls) {
     controls.update();
   } else {
     camera.lookAt(0, 0, 0);
   }
   
-  renderer.render(scene, camera);
+  if (renderer && scene && camera) {
+    renderer.render(scene, camera);
+  }
 }
 
 window.addEventListener('resize', () => {
